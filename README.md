@@ -7,7 +7,6 @@ and a client that requires an admin key.
 
 ## Requires
 
-Charms requiring this interface gather logs and forward them to a provider.
 This interface layer will set the following states, as appropriate:
 
   * `{relation_name}.available` The ceph client has been related to a provider.
