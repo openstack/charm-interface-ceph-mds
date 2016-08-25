@@ -1,7 +1,7 @@
 # Overview
 
 This interface layer handles the communication between the Ceph Monitor 
-and an client that requires an admin key.
+and a client that requires an admin key.
 
 # Usage
 
