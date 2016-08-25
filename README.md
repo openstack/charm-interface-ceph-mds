@@ -1,6 +1,6 @@
 # Overview
 
-This interface layer handles the communication between the Ceph Monitor Syslog
+This interface layer handles the communication between the Ceph Monitor 
 and an client that requires an admin key.
 
 # Usage
