@@ -6,17 +6,23 @@ from charms.reactive import is_state
 
 class CephClient(RelationBase):
     scope = scopes.GLOBAL
-    auto_accessors = ['key', 'auth', 'public_address']
+    auto_accessors = ['key', 'fsid', 'auth', 'mon_hosts']
 
     @hook('{requires:ceph-admin}-relation-{joined,changed}')
     def changed(self):
         self.set_state('{relation_name}.connected')
         key = None
+        fsid = None
         auth = None
-        public_addr = None
+        mon_hosts = None
 
         try:
             key = self.key
+        except AttributeError:
+            pass
+
+        try:
+            fsid = self.fsid
         except AttributeError:
             pass
 
@@ -26,14 +32,15 @@ class CephClient(RelationBase):
             pass
 
         try:
-            public_addr = self.public_address
+            mon_hosts = self.mon_hosts
         except AttributeError:
             pass
 
         data = {
             'key': key,
+            'fsid': fsid,
             'auth': auth,
-            'public_address': public_addr
+            'mon_hosts': mon_hosts
         }
 
         if all(data.values()):
