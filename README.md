@@ -11,7 +11,7 @@ This interface layer will set the following states, as appropriate:
 
   * `{relation_name}.available` The ceph client has been related to a provider.
   The following accessors will be available:
-   - key - The admin cephx key
+   - key - The mds cephx key
    - auth - Whether or not strict auth is supported
    - mon_hosts - The public addresses list of the monitor cluster
 

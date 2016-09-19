@@ -8,9 +8,11 @@ class CephClient(RelationBase):
     scope = scopes.GLOBAL
     auto_accessors = ['key', 'fsid', 'auth', 'mon_hosts']
 
-    @hook('{requires:ceph-admin}-relation-{joined,changed}')
+    @hook('{requires:ceph-mds}-relation-{joined,changed}')
     def changed(self):
+        self.set_remote(key='mds-name', value='a')
         self.set_state('{relation_name}.connected')
+        admin_key = None
         key = None
         fsid = None
         auth = None
@@ -18,6 +20,11 @@ class CephClient(RelationBase):
 
         try:
             key = self.key
+        except AttributeError:
+            pass
+
+        try:
+            admin_key = self.admin_key
         except AttributeError:
             pass
 
@@ -38,6 +45,7 @@ class CephClient(RelationBase):
 
         data = {
             'key': key,
+            'admin_key': admin_key,
             'fsid': fsid,
             'auth': auth,
             'mon_hosts': mon_hosts
@@ -46,7 +54,7 @@ class CephClient(RelationBase):
         if all(data.values()):
             self.set_state('{relation_name}.available')
 
-    @hook('{requires:ceph-admin}-relation-{broken,departed}')
+    @hook('{requires:ceph-mds}-relation-{broken,departed}')
     def broken(self):
         if is_state('{relation_name}.available'):
             self.remove_state('{relation_name}.available')
