@@ -12,6 +12,7 @@ This interface layer will set the following states, as appropriate:
   * `{relation_name}.available` The ceph client has been related to a provider.
   The following accessors will be available:
    - key - The mds cephx key
+   - admin_key - The cephx admin key
    - auth - Whether or not strict auth is supported
    - mon_hosts - The public addresses list of the monitor cluster
 
@@ -19,7 +20,7 @@ This interface layer will set the following states, as appropriate:
 Client example:
 
 ```python
-@when('ceph-admin.available')
+@when('ceph-mds.available')
 def ceph_connected(ceph_info):
   charm_ceph_conf = os.path.join(os.sep, 'etc', 'ceph', 'ceph.conf')
   cephx_key = os.path.join(os.sep, 'etc', 'ceph', 'ceph.client.admin.keyring')
