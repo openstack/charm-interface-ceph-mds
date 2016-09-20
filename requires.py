@@ -1,3 +1,4 @@
+import socket
 from charms.reactive import hook
 from charms.reactive import RelationBase
 from charms.reactive import scopes
@@ -10,7 +11,7 @@ class CephClient(RelationBase):
 
     @hook('{requires:ceph-mds}-relation-{joined,changed}')
     def changed(self):
-        self.set_remote(key='mds-name', value='a')
+        self.set_remote(key='mds-name', value=socket.gethostname())
         self.set_state('{relation_name}.connected')
         admin_key = None
         key = None
