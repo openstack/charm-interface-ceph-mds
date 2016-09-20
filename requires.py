@@ -6,7 +6,7 @@ from charms.reactive import is_state
 
 class CephClient(RelationBase):
     scope = scopes.GLOBAL
-    auto_accessors = ['key', 'fsid', 'auth', 'mon_hosts']
+    auto_accessors = ['key', 'fsid', 'auth', 'mon_hosts', 'admin_key']
 
     @hook('{requires:ceph-mds}-relation-{joined,changed}')
     def changed(self):
