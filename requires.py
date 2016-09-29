@@ -3,11 +3,9 @@ import socket
 from charms.reactive import hook, set_state
 from charms.reactive import RelationBase
 from charms.reactive import scopes
-from charms.reactive import is_state
-from charmhelpers.core.hookenv import (
-    DEBUG)
-from charmhelpers.core.hookenv import (
-    log, status_set, service_name)
+
+from charmhelpers.core import hookenv
+
 from charmhelpers.contrib.storage.linux.ceph import (
     CephBrokerRq,
     is_request_complete,
@@ -15,89 +13,81 @@ from charmhelpers.contrib.storage.linux.ceph import (
 )
 
 
-# Each CephFS juju service gets its own set of data/metadata pools
-def create_broker_requests():
-    log("Creating broker request")
-    name = socket.gethostname()
-    rq = CephBrokerRq()
-    rq.add_op_create_pool(name="{}_data".format(service_name()),
-                          replica_count=3,
-                          weight=None)
-    rq.add_op_create_pool(name="{}_metadata".format(service_name()),
-                          replica_count=3,
-                          weight=None)
-    # Create CephFS
-    rq.ops.append(
-        {
-            'op': 'create-cephfs',
-            'mds_name': name,
-            'data_pool': "data_{}".format(name),
-            'metadata_pool': "metadata_{}".format(name),
-        }
-    )
-    return rq
-
-
-def async_pool_request():
-    status_set('maintenance', "Requesting CephFS pool creation")
-    rq = create_broker_requests()
-
-    if is_request_complete(rq, relation='mds'):
-        log('Broker request complete', level=DEBUG)
-        set_state("cephfs.pools.created")
-        status_set('maintenance', "CephFS pools created")
-    else:
-        log('sending broker request: {}'.format(rq),
-            level=DEBUG)
-        send_request_if_needed(rq, relation='mds')
-
-
 class CephClient(RelationBase):
+
     scope = scopes.GLOBAL
-    auto_accessors = ['key', 'fsid', 'auth',
-                      'ceph-public-address']
 
-    @hook('{requires:ceph-mds}-relation-{joined,changed}')
-    def changed(self):
-        self.set_remote(key='mds-name', value=socket.gethostname())
+    auto_accessors = ['mds_bootstrap_key', 'fsid', 'auth']
+
+    @hook('{requires:ceph-mds}-relation-{joined}')
+    def joined(self):
         self.set_state('{relation_name}.connected')
-        key = None
-        fsid = None
-        auth = None
-        ceph_public_address = None
 
-        try:
-            key = self.key
-        except AttributeError:
-            pass
-
-        try:
-            fsid = self.fsid
-        except AttributeError:
-            pass
-
-        try:
-            auth = self.auth
-        except AttributeError:
-            pass
-
-        try:
-            ceph_public_address = self.ceph_public_address
-        except AttributeError:
-            pass
-
+    @hook('{requires:ceph-mds}-relation-{changed,departed}')
+    def changed(self):
         data = {
-            'key': key,
-            'fsid': fsid,
-            'auth': auth,
-            'ceph_public_address': ceph_public_address
+            'mds_bootstrap_key': self.mds_bootstrap_key(),
+            'fsid': self.fsid(),
+            'auth': self.auth(),
+            'mon_hosts': self.mon_hosts()
         }
-
         if all(data.values()):
             self.set_state('{relation_name}.available')
-            async_pool_request()
 
-    @hook('{requires:ceph-mds}-relation-{broken,departed}')
+        rq = self.get_local(key='broker_req')
+        if rq and is_request_complete(rq,
+                                      relation=self.relation_name):
+            self.set_state('{relation_name}.pools.available')
+
+    @hook('{requires:ceph-mds}-relation-{broken}')
     def broken(self):
-        if is_state('{relation_name}.available'):
-            self.remove_state('{relation_name}.available')
+        self.remove_state('{relation_name}.available')
+        self.remove_state('{relation_name}.connected')
+        self.remove_state('{relation_name}.pools.available')
+
+    def initialize_mds(self, name, replicas=3):
+        '''
+        Request pool setup and mds creation
+
+        @param name: name of mds pools to create
+        @param replicas: number of replicas for supporting pools
+        '''
+        rq = self.get_local(key='broker_req')
+
+        if not rq:
+            rq = CephBrokerRq()
+            rq.add_op_create_pool(name="{}_data".format(name),
+                                  replica_count=replicas,
+                                  weight=None)
+            rq.add_op_create_pool(name="{}_metadata".format(name),
+                                  replica_count=replicas,
+                                  weight=None)
+            # Create CephFS
+            # TODO: add to CephBrokerReq class
+            rq.ops.append({
+                'op': 'create-cephfs',
+                'mds_name': name,
+                'data_pool': "data_{}".format(name),
+                'metadata_pool': "metadata_{}".format(name),
+            })
+            self.set_local(key='broker_req', rq)
+
+        send_request_if_needed(rq, relation=self.relation_name)
+
+    def get_remote_all(self, key, default=None):
+        '''Return a list of all values presented by remote units for key'''
+        # TODO: might be a nicer way todo this - written a while back!
+        values = []
+        for conversation in self.conversations():
+            for relation_id in conversation.relation_ids:
+                for unit in hookenv.related_units(relation_id):
+                    value = hookenv.relation_get(key,
+                                                 unit,
+                                                 relation_id) or default
+                    if value:
+                        values.append(value)
+        return list(set(values))
+
+    def mon_hosts(self):
+        '''List of all monitor host public addresses'''
+        return self.get_remote_all('ceph-public-address')
