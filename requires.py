@@ -17,19 +17,16 @@ class CephClient(RelationBase):
 
     scope = scopes.GLOBAL
 
-    auto_accessors = ['key', 'fsid', 'auth']
+    auto_accessors = ['mds_bootstrap_key', 'fsid', 'auth']
 
     @hook('{requires:ceph-mds}-relation-{joined}')
     def joined(self):
-        # TODO: what does this next line do?
-        self.set_remote(key='mds-name',
-                        value=socket.gethostname())
         self.set_state('{relation_name}.connected')
 
     @hook('{requires:ceph-mds}-relation-{changed,departed}')
     def changed(self):
         data = {
-            'key': self.key(),
+            'mds_bootstrap_key': self.mds_bootstrap_key(),
             'fsid': self.fsid(),
             'auth': self.auth(),
             'mon_hosts': self.mon_hosts()
