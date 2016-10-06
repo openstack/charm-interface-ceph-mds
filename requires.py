@@ -1,11 +1,11 @@
+import json
 import socket
 
-from charms.reactive import hook, set_state
+from charms.reactive import hook
 from charms.reactive import RelationBase
 from charms.reactive import scopes
-
 from charmhelpers.core import hookenv
-
+from charmhelpers.core.hookenv import log
 from charmhelpers.contrib.storage.linux.ceph import (
     CephBrokerRq,
     is_request_complete,
@@ -14,19 +14,19 @@ from charmhelpers.contrib.storage.linux.ceph import (
 
 
 class CephClient(RelationBase):
-
     scope = scopes.GLOBAL
 
-    auto_accessors = ['mds_bootstrap_key', 'fsid', 'auth']
+    auto_accessors = ['mds_key', 'fsid', 'auth']
 
     @hook('{requires:ceph-mds}-relation-{joined}')
     def joined(self):
         self.set_state('{relation_name}.connected')
+        self.initialize_mds(name=socket.gethostname())
 
     @hook('{requires:ceph-mds}-relation-{changed,departed}')
     def changed(self):
         data = {
-            'mds_bootstrap_key': self.mds_bootstrap_key(),
+            'mds_key': self.mds_key(),
             'fsid': self.fsid(),
             'auth': self.auth(),
             'mon_hosts': self.mon_hosts()
@@ -46,15 +46,16 @@ class CephClient(RelationBase):
         self.remove_state('{relation_name}.pools.available')
 
     def initialize_mds(self, name, replicas=3):
-        '''
+        """
         Request pool setup and mds creation
 
         @param name: name of mds pools to create
         @param replicas: number of replicas for supporting pools
-        '''
-        rq = self.get_local(key='broker_req')
+        """
+        # json.dumps of the CephBrokerRq()
+        json_rq = self.get_local(key='broker_req')
 
-        if not rq:
+        if not json_rq:
             rq = CephBrokerRq()
             rq.add_op_create_pool(name="{}_data".format(name),
                                   replica_count=replicas,
@@ -63,19 +64,27 @@ class CephClient(RelationBase):
                                   replica_count=replicas,
                                   weight=None)
             # Create CephFS
-            # TODO: add to CephBrokerReq class
             rq.ops.append({
                 'op': 'create-cephfs',
                 'mds_name': name,
-                'data_pool': "data_{}".format(name),
-                'metadata_pool': "metadata_{}".format(name),
+                'data_pool': "{}_data".format(name),
+                'metadata_pool': "{}_metadata".format(name),
             })
-            self.set_local(key='broker_req', rq)
-
-        send_request_if_needed(rq, relation=self.relation_name)
+            self.set_local(key='broker_req', value=rq.request)
+            send_request_if_needed(rq, relation=self.relation_name)
+        else:
+            rq = CephBrokerRq()
+            try:
+                j = json.loads(json_rq)
+                log("Json request: {}".format(json_rq))
+                rq.ops = j['ops']
+                send_request_if_needed(rq, relation=self.relation_name)
+            except ValueError as err:
+                log("Unable to decode broker_req: {}.  Error: {}".format(
+                    json_rq, err))
 
     def get_remote_all(self, key, default=None):
-        '''Return a list of all values presented by remote units for key'''
+        """Return a list of all values presented by remote units for key"""
         # TODO: might be a nicer way todo this - written a while back!
         values = []
         for conversation in self.conversations():
@@ -89,5 +98,11 @@ class CephClient(RelationBase):
         return list(set(values))
 
     def mon_hosts(self):
-        '''List of all monitor host public addresses'''
-        return self.get_remote_all('ceph-public-address')
+        """List of all monitor host public addresses"""
+        hosts = []
+        addrs = self.get_remote_all('ceph-public-address')
+        for addr in addrs:
+            hosts.append('{}:6789'.format(addr))
+
+        hosts.sort()
+        return hosts
