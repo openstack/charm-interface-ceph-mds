@@ -19,6 +19,7 @@ class CephClient(RelationBase):
 
     @hook('{requires:ceph-mds}-relation-{joined}')
     def joined(self):
+        self.set_remote(key='mds-name', value=socket.gethostname())
         self.set_state('{relation_name}.connected')
         self.initialize_mds(name=local_unit())
 
