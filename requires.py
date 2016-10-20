@@ -1,11 +1,10 @@
 import json
-import socket
 
 from charms.reactive import hook
 from charms.reactive import RelationBase
 from charms.reactive import scopes
 from charmhelpers.core import hookenv
-from charmhelpers.core.hookenv import log
+from charmhelpers.core.hookenv import log, local_unit
 from charmhelpers.contrib.storage.linux.ceph import (
     CephBrokerRq,
     is_request_complete,
@@ -20,9 +19,8 @@ class CephClient(RelationBase):
 
     @hook('{requires:ceph-mds}-relation-{joined}')
     def joined(self):
-        self.set_remote(key='mds-name', value=socket.gethostname())
         self.set_state('{relation_name}.connected')
-        self.initialize_mds(name=socket.gethostname())
+        self.initialize_mds(name=local_unit())
 
     @hook('{requires:ceph-mds}-relation-{changed,departed}')
     def changed(self):
