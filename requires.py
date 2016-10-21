@@ -5,7 +5,7 @@ from charms.reactive import hook
 from charms.reactive import RelationBase
 from charms.reactive import scopes
 from charmhelpers.core import hookenv
-from charmhelpers.core.hookenv import log
+from charmhelpers.core.hookenv import log, service_name
 from charmhelpers.contrib.storage.linux.ceph import (
     CephBrokerRq,
     is_request_complete,
@@ -22,7 +22,7 @@ class CephClient(RelationBase):
     def joined(self):
         self.set_remote(key='mds-name', value=socket.gethostname())
         self.set_state('{relation_name}.connected')
-        self.initialize_mds(name=socket.gethostname())
+        self.initialize_mds(name=service_name())
 
     @hook('{requires:ceph-mds}-relation-{changed,departed}')
     def changed(self):
@@ -35,10 +35,19 @@ class CephClient(RelationBase):
         if all(data.values()):
             self.set_state('{relation_name}.available')
 
-        rq = self.get_local(key='broker_req')
-        if rq and is_request_complete(rq,
-                                      relation=self.relation_name):
-            self.set_state('{relation_name}.pools.available')
+        json_rq = self.get_local(key='broker_req')
+        if json_rq:
+            rq = CephBrokerRq()
+            j = json.loads(json_rq)
+            rq.ops = j['ops']
+            log("changed broker_req: {}".format(rq))
+
+            if rq and is_request_complete(rq,
+                                          relation=self.relation_name):
+                log("Setting ceph-mds.pools.available")
+                self.set_state('{relation_name}.pools.available')
+            else:
+                log("incomplete request")
 
     @hook('{requires:ceph-mds}-relation-{broken}')
     def broken(self):
