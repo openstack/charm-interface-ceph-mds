@@ -14,7 +14,7 @@ from charmhelpers.contrib.storage.linux.ceph import (
 
 
 class CephClient(RelationBase):
-    scope = scopes.SERVICE
+    scope = scopes.GLOBAL
 
     auto_accessors = ['mds_key', 'fsid', 'auth']
 
