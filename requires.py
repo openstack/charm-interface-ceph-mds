@@ -14,7 +14,7 @@ from charmhelpers.contrib.storage.linux.ceph import (
 
 
 class CephClient(RelationBase):
-    scope = scopes.GLOBAL
+    scope = scopes.SERVICE
 
     auto_accessors = ['mds_key', 'fsid', 'auth']
 
@@ -40,14 +40,14 @@ class CephClient(RelationBase):
             rq = CephBrokerRq()
             j = json.loads(json_rq)
             rq.ops = j['ops']
-            log("changed broker_req: {}".format(rq))
+            log("changed broker_req: {}".format(rq.ops))
 
             if rq and is_request_complete(rq,
                                           relation=self.relation_name):
                 log("Setting ceph-mds.pools.available")
                 self.set_state('{relation_name}.pools.available')
             else:
-                log("incomplete request")
+                log("incomplete request. broker_req not found")
 
     @hook('{requires:ceph-mds}-relation-{broken}')
     def broken(self):
