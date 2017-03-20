@@ -6,6 +6,8 @@ from charms.reactive import RelationBase
 from charms.reactive import scopes
 from charmhelpers.core import hookenv
 from charmhelpers.core.hookenv import log, service_name
+from charmhelpers.contrib.network.ip import format_ipv6_addr
+
 from charmhelpers.contrib.storage.linux.ceph import (
     CephBrokerRq,
     is_request_complete,
@@ -112,7 +114,6 @@ class CephClient(RelationBase):
         hosts = []
         addrs = self.get_remote_all('ceph-public-address')
         for addr in addrs:
-            hosts.append('{}:6789'.format(addr))
-
+            hosts.append('{}:6789'.format(format_ipv6_addr(addr) or addr))
         hosts.sort()
         return hosts
