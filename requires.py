@@ -19,6 +19,7 @@ class CephClient(RelationBase):
     scope = scopes.GLOBAL
 
     auto_accessors = ['mds_key', 'fsid', 'auth']
+    ceph_pool_app_name = 'cephfs'
 
     @hook('{requires:ceph-mds}-relation-{joined}')
     def joined(self):
@@ -71,10 +72,12 @@ class CephClient(RelationBase):
             rq = CephBrokerRq()
             rq.add_op_create_pool(name="{}_data".format(name),
                                   replica_count=replicas,
-                                  weight=None)
+                                  weight=None,
+                                  app_name=self.ceph_pool_app_name)
             rq.add_op_create_pool(name="{}_metadata".format(name),
                                   replica_count=replicas,
-                                  weight=None)
+                                  weight=None,
+                                  app_name=self.ceph_pool_app_name)
             # Create CephFS
             rq.ops.append({
                 'op': 'create-cephfs',

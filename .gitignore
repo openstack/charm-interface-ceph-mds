@@ -2,3 +2,5 @@
 *.swp
 .testrepository
 .tox
+__pycache__
+.stestr
