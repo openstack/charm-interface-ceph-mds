@@ -18,7 +18,7 @@ from charmhelpers.contrib.storage.linux.ceph import (
 class CephClient(RelationBase):
     scope = scopes.GLOBAL
 
-    auto_accessors = ['mds_key', 'fsid', 'auth']
+    auto_accessors = ['fsid', 'auth']
     ceph_pool_app_name = 'cephfs'
 
     @hook('{requires:ceph-mds}-relation-{joined}')
@@ -120,3 +120,7 @@ class CephClient(RelationBase):
             hosts.append('{}:6789'.format(format_ipv6_addr(addr) or addr))
         hosts.sort()
         return hosts
+
+    def mds_key(self):
+        """Retrieve the cephx key for the local mds unit"""
+        return self.get_remote('{}_mds_key'.format(socket.gethostname()))
